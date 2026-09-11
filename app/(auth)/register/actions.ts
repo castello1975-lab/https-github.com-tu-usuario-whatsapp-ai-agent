@@ -29,17 +29,6 @@ export async function registerAction(
 
   const admin = createAdminClient();
 
-  const { data: existingOrgs } = await admin
-    .from("organizations")
-    .select("id")
-    .limit(1);
-  if (existingOrgs && existingOrgs.length > 0) {
-    return {
-      error:
-        "Ya existe una organización registrada en este deployment. Este template es de un solo negocio por instancia.",
-    };
-  }
-
   const { data: userData, error: createUserError } =
     await admin.auth.admin.createUser({
       email,

@@ -25,9 +25,11 @@ npm install
    - **service_role key** → `SUPABASE_SERVICE_ROLE_KEY` (¡no la compartas, tiene acceso total!)
 4. Ve a **SQL Editor**, pega el contenido completo de
    [`supabase/migrations/0001_init.sql`](./supabase/migrations/0001_init.sql)
-   y pulsa **Run**.
+   y pulsa **Run**. Repite lo mismo con
+   [`supabase/migrations/0002_whatsapp_connection.sql`](./supabase/migrations/0002_whatsapp_connection.sql).
 5. Verifica en **Table Editor** que se han creado todas las tablas
-   (`organizations`, `profiles`, `conversations`, `messages`, `appointments`, etc.).
+   (`organizations`, `profiles`, `conversations`, `messages`, `appointments`,
+   `whatsapp_connection`, etc.).
 
 ## 2. Anthropic (el modelo Claude que responde por WhatsApp)
 
@@ -69,8 +71,9 @@ Copia el archivo de ejemplo y rellénalo con todo lo anterior:
 cp .env.local.example .env.local
 ```
 
-En este punto ya deberías tener rellenas todas las variables **excepto** las
-de `WHATSAPP_*` (eso viene en el paso 7).
+En este punto ya deberías tener rellenas todas las variables — ya no hace
+falta ninguna de `WHATSAPP_*` aquí, eso se configura por negocio desde el
+propio panel (paso 8).
 
 ## 6. Arranca la app en local
 
@@ -78,9 +81,12 @@ de `WHATSAPP_*` (eso viene en el paso 7).
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000), regístrate (nombre, nombre
-del negocio, zona horaria, correo, contraseña) y entra al panel. Este template
-es de **un solo negocio por deployment**: el registro solo funciona una vez.
+Abre [http://localhost:3000](http://localhost:3000) y regístrate (nombre, nombre
+del negocio, zona horaria, correo, contraseña). Esta app es **multi-tenant**:
+cada negocio/cliente se registra con su propia cuenta y obtiene su propia
+organización aislada (horarios, servicios, conversaciones, WhatsApp y Google
+Calendar propios) dentro del mismo despliegue — no hace falta clonar el
+proyecto por cliente.
 
 ## 7. ngrok (túnel para el webhook de WhatsApp)
 
@@ -97,6 +103,11 @@ Meta necesita una URL pública HTTPS para enviarte los mensajes entrantes.
 
 ## 8. Meta for Developers (WhatsApp Cloud API — modo de prueba)
 
+Esta app es multi-tenant: **la URL del webhook es una sola, compartida por
+todos los negocios** (`<tu-dominio>/api/webhooks/whatsapp`). Cada negocio
+conecta su propio número siguiendo estos mismos pasos y pegando sus propias
+credenciales en su panel — no se tocan variables de entorno por cliente nuevo.
+
 1. Necesitas una cuenta de Facebook. Ve a
    [business.facebook.com](https://business.facebook.com) y, si no tienes página
    ni portfolio empresarial, crea una página (cualquier nombre/categoría sirve
@@ -104,22 +115,24 @@ Meta necesita una URL pública HTTPS para enviarte los mensajes entrantes.
 2. Ve a [developers.facebook.com](https://developers.facebook.com), inicia
    sesión, y en **My Apps > Create App** elige el caso de uso
    **"Connect with customers through WhatsApp"**, asociado a tu portfolio empresarial.
-3. Dentro de la app, ve a **WhatsApp > API Setup**:
-   - Copia el **Phone number ID** → `WHATSAPP_PHONE_NUMBER_ID`.
-   - Copia el **WhatsApp Business Account ID** → `WHATSAPP_BUSINESS_ACCOUNT_ID`.
-   - Copia el **Temporary access token** → `WHATSAPP_ACCESS_TOKEN` (caduca en 24h;
-     para algo más permanente, genera un token de **System User** desde Business
-     Settings con permisos `whatsapp_business_messaging` y `whatsapp_business_management`,
-     caducidad "nunca").
+3. Dentro de la app, ve a **WhatsApp > API Setup** y copia:
+   - El **Phone number ID**.
+   - El **WhatsApp Business Account ID**.
+   - El **Temporary access token** (caduca en 24h; para algo más permanente,
+     genera un token de **System User** desde Business Settings con permisos
+     `whatsapp_business_messaging` y `whatsapp_business_management`, caducidad "nunca").
    - En **To**, añade tu propio número de WhatsApp como destinatario de prueba
      (te llegará un código de verificación por WhatsApp).
-4. Ve a **App Settings > Basic** y copia el **App Secret** → `WHATSAPP_APP_SECRET`.
-5. Elige tú mismo un texto aleatorio para `WHATSAPP_VERIFY_TOKEN` (cualquier
-   cadena; solo tiene que coincidir con lo que pongas en el siguiente paso).
-6. Vuelve a rellenar `.env.local` con estos 5 valores y reinicia `npm run dev`.
-7. Ve a **WhatsApp > Configuration**:
-   - **Webhook URL**: `<tu-url-de-ngrok>/api/webhooks/whatsapp`
-   - **Verify token**: el mismo valor que pusiste en `WHATSAPP_VERIFY_TOKEN`
+4. Ve a **App Settings > Basic** y copia el **App Secret**.
+5. Elige tú mismo un texto aleatorio como Verify Token (cualquier cadena que
+   tú inventes; solo tiene que coincidir con lo que pongas en el paso 7).
+6. En el panel de esta app (logueado como ese negocio), ve a
+   **Integraciones > WhatsApp Business** y pega ahí los 5 valores anteriores
+   (Phone Number ID, WABA ID, Access Token, App Secret, Verify Token). Guarda.
+7. Vuelve a Meta, a **WhatsApp > Configuration**:
+   - **Webhook URL**: `<tu-dominio>/api/webhooks/whatsapp` (la misma para
+     todos los negocios).
+   - **Verify token**: el mismo valor elegido en el paso 5.
    - Pulsa **Verify and save**.
    - En **Webhook fields**, suscríbete al campo **messages**.
 
@@ -138,8 +151,8 @@ Meta necesita una URL pública HTTPS para enviarte los mensajes entrantes.
 
 | Síntoma | Causa probable |
 |---|---|
-| Meta da error 403 al verificar el webhook | `WHATSAPP_VERIFY_TOKEN` no coincide entre `.env.local` y la configuración de Meta |
-| El envío de mensajes falla con 401 | El token temporal de WhatsApp caducó (dura 24h) — genera uno nuevo o usa un token de System User |
+| Meta da error 403 al verificar el webhook | El Verify Token guardado en Integraciones para ese negocio no coincide con el que pusiste en Meta |
+| El envío de mensajes falla con 401 | El token temporal de WhatsApp caducó (dura 24h) — vuelve a Integraciones y pega uno nuevo, o usa un token de System User |
 | Google Calendar da error 403 | La Calendar API no está activada, o tu correo no está en "Test users" de la pantalla de consentimiento |
 | Supabase da "permission denied" | Estás usando la `anon key` en una ruta server-only que necesita la `service_role key` |
 | El bot no responde nada | Revisa los logs de `npm run dev`; comprueba que `ANTHROPIC_API_KEY` tiene crédito |

@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getConversation, touchConversation } from "@/lib/db/conversations";
 import { insertMessage } from "@/lib/db/messages";
 import { sendText } from "@/lib/whatsapp/client";
+import {
+  getWhatsAppConnection,
+  decryptWhatsAppSecrets,
+} from "@/lib/db/whatsappConnection";
 
 export async function POST(
   request: Request,
@@ -24,13 +28,19 @@ export async function POST(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const whatsappMessageId = await sendText(
-    conversation.contact.whatsapp_phone,
-    content
-  ).catch((err) => {
-    console.error("Error enviando mensaje manual de WhatsApp", err);
-    return null;
-  });
+  const whatsappConnection = await getWhatsAppConnection(supabase, current.orgId);
+  let whatsappMessageId: string | null = null;
+  if (whatsappConnection?.access_token_encrypted) {
+    const { accessToken } = decryptWhatsAppSecrets(whatsappConnection);
+    whatsappMessageId = await sendText(
+      { accessToken, phoneNumberId: whatsappConnection.phone_number_id },
+      conversation.contact.whatsapp_phone,
+      content
+    ).catch((err) => {
+      console.error("Error enviando mensaje manual de WhatsApp", err);
+      return null;
+    });
+  }
 
   const message = await insertMessage(supabase, {
     orgId: current.orgId,

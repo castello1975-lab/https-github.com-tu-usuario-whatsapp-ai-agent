@@ -35,6 +35,9 @@ yarn-error.log*
 # .env.production only holds NEXT_PUBLIC_* values, which are not secret —
 # committed on purpose so they are guaranteed present at Next.js build time.
 !.env.production
+# .env.local.example is a template with no real values — meant to be committed
+# so SETUP.md's "cp .env.local.example .env.local" step actually works.
+!.env.local.example
 
 # vercel
 .vercel

@@ -1,14 +1,18 @@
 import { getCurrentOrgId } from "@/lib/auth/currentOrg";
 import { createClient } from "@/lib/supabase/server";
 import { getGoogleConnection } from "@/lib/db/googleConnection";
+import { getWhatsAppConnection } from "@/lib/db/whatsappConnection";
 import { GoogleCalendarCard } from "@/components/dashboard/GoogleCalendarCard";
-import { WhatsAppStatusCard } from "@/components/dashboard/WhatsAppStatusCard";
+import { WhatsAppConnectionCard } from "@/components/dashboard/WhatsAppConnectionCard";
 
 export default async function IntegrationsPage() {
   const current = await getCurrentOrgId();
   if (!current) return null;
   const supabase = await createClient();
-  const connection = await getGoogleConnection(supabase, current.orgId);
+  const [googleConnection, whatsappConnection] = await Promise.all([
+    getGoogleConnection(supabase, current.orgId),
+    getWhatsAppConnection(supabase, current.orgId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -21,11 +25,15 @@ export default async function IntegrationsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
         <GoogleCalendarCard
-          connected={!!connection?.access_token_encrypted}
-          accountEmail={connection?.google_account_email ?? null}
-          currentCalendarId={connection?.calendar_id ?? null}
+          connected={!!googleConnection?.access_token_encrypted}
+          accountEmail={googleConnection?.google_account_email ?? null}
+          currentCalendarId={googleConnection?.calendar_id ?? null}
         />
-        <WhatsAppStatusCard />
+        <WhatsAppConnectionCard
+          connected={!!whatsappConnection?.access_token_encrypted}
+          phoneNumberId={whatsappConnection?.phone_number_id ?? ""}
+          businessAccountId={whatsappConnection?.business_account_id ?? ""}
+        />
       </div>
     </div>
   );

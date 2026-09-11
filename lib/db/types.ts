@@ -125,6 +125,18 @@ export type ConversationEventType =
   | "bot_enabled"
   | "handoff_triggered";
 
+export interface WhatsAppConnection {
+  id: string;
+  org_id: string;
+  phone_number_id: string;
+  business_account_id: string | null;
+  access_token_encrypted: string;
+  app_secret_encrypted: string;
+  verify_token: string;
+  connected_at: string | null;
+  updated_at: string;
+}
+
 export interface ConversationEvent {
   id: string;
   org_id: string;

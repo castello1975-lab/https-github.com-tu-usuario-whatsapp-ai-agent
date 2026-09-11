@@ -15,6 +15,10 @@ import {
 import { buildSystemPrompt } from "./systemPrompt";
 import { TOOL_DEFINITIONS, executeTool } from "./tools";
 import { sendText } from "@/lib/whatsapp/client";
+import {
+  getWhatsAppConnection,
+  decryptWhatsAppSecrets,
+} from "@/lib/db/whatsappConnection";
 
 const MAX_TOOL_ITERATIONS = 5;
 
@@ -33,18 +37,29 @@ export async function handleIncomingMessage(params: {
   const { orgId, conversationId, contactId, whatsappPhone } = params;
   const supabase = createAdminClient();
 
-  const [org, settings, services, hours, history] = await Promise.all([
-    getOrganization(supabase, orgId),
-    getAgentSettings(supabase, orgId),
-    listServices(supabase, orgId, true),
-    getBusinessHours(supabase, orgId),
-    listRecentMessages(supabase, conversationId, 20),
-  ]);
+  const [org, settings, services, hours, history, whatsappConnection] =
+    await Promise.all([
+      getOrganization(supabase, orgId),
+      getAgentSettings(supabase, orgId),
+      listServices(supabase, orgId, true),
+      getBusinessHours(supabase, orgId),
+      listRecentMessages(supabase, conversationId, 20),
+      getWhatsAppConnection(supabase, orgId),
+    ]);
 
-  if (!org || !settings) {
-    console.error("Falta organización o agent_settings para org", orgId);
+  if (!org || !settings || !whatsappConnection?.access_token_encrypted) {
+    console.error(
+      "Falta organización, agent_settings o conexión de WhatsApp para org",
+      orgId
+    );
     return;
   }
+
+  const { accessToken } = decryptWhatsAppSecrets(whatsappConnection);
+  const whatsappCreds = {
+    accessToken,
+    phoneNumberId: whatsappConnection.phone_number_id,
+  };
 
   const nowIso = DateTime.now().setZone(org.timezone).toFormat("cccc dd/MM/yyyy HH:mm");
   const systemPrompt = buildSystemPrompt({ org, settings, services, hours, nowIso });
@@ -134,10 +149,12 @@ export async function handleIncomingMessage(params: {
     finalText = "Disculpa, no he entendido bien tu mensaje. ¿Puedes reformularlo?";
   }
 
-  const whatsappMessageId = await sendText(whatsappPhone, finalText).catch((err) => {
-    console.error("Error enviando mensaje de WhatsApp", err);
-    return null;
-  });
+  const whatsappMessageId = await sendText(whatsappCreds, whatsappPhone, finalText).catch(
+    (err) => {
+      console.error("Error enviando mensaje de WhatsApp", err);
+      return null;
+    }
+  );
 
   await insertMessage(supabase, {
     orgId,
