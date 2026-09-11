@@ -11,7 +11,10 @@ export async function getWhatsAppConnection(
     .select("*")
     .eq("org_id", orgId)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    console.error("getWhatsAppConnection error:", error.message);
+    return null;
+  }
   return data as WhatsAppConnection | null;
 }
 
@@ -26,7 +29,10 @@ export async function getWhatsAppConnectionByPhoneNumberId(
     .select("*")
     .eq("phone_number_id", phoneNumberId)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    console.error("getWhatsAppConnectionByPhoneNumberId error:", error.message);
+    return null;
+  }
   return data as WhatsAppConnection | null;
 }
 
@@ -43,7 +49,10 @@ export async function verifyTokenExists(
     .eq("verify_token", token)
     .limit(1)
     .maybeSingle();
-  if (error) return false;
+  if (error) {
+    console.error("verifyTokenExists error:", error.message);
+    return false;
+  }
   return !!data;
 }
 
